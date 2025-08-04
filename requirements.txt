@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+transformers
+torch
+psutil
+flake8
+pytest
