@@ -11,7 +11,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .local_model import analyze_code
+try:
+    from .local_model import analyze_code
+except ImportError:  # Allows running as a script without a package context
+    from local_model import analyze_code
 
 BASE_DIR = Path(__file__).resolve().parent
 
