@@ -1,6 +1,8 @@
 import asyncio
 import os
+import subprocess
 import time
+from pathlib import Path
 from typing import Dict
 
 import psutil
@@ -11,8 +13,10 @@ from pydantic import BaseModel
 
 from .local_model import analyze_code
 
+BASE_DIR = Path(__file__).resolve().parent
+
 app = FastAPI(title="AAW Server AI")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 ALLOWED_KEYS = [
     key for key in os.getenv("ALLOWED_KEYS", "demo-key").split(",") if key
@@ -21,6 +25,21 @@ ALLOWED_KEYS = [
 active_users: Dict[str, float] = {}
 concurrency_limit = int(os.getenv("MAX_CONCURRENCY", "1"))
 semaphore = asyncio.Semaphore(concurrency_limit)
+
+
+@app.on_event("startup")
+async def setup_environment() -> None:
+    """Ensure dependencies and source are up to date at launch."""
+    root = BASE_DIR.parent
+    remotes = subprocess.run(["git", "remote"], capture_output=True, text=True)
+    if "origin" in remotes.stdout.split():
+        subprocess.run(
+            ["git", "-C", str(root), "pull", "--ff-only", "origin", "main"],
+            check=False,
+        )
+    req_file = root / "requirements.txt"
+    if req_file.exists():
+        subprocess.run(["pip", "install", "-r", str(req_file)], check=False)
 
 
 class CodeRequest(BaseModel):
@@ -66,11 +85,11 @@ async def stats():
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    with open("static/index.html", "r", encoding="utf-8") as f:
+    with open(BASE_DIR / "static/index.html", "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin():
-    with open("static/admin.html", "r", encoding="utf-8") as f:
+    with open(BASE_DIR / "static/admin.html", "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
